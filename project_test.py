@@ -1,6 +1,5 @@
 import unittest
 import project
-from scipy.misc import derivative
 from scipy.optimize import minimize, check_grad
 import numpy as np
 
@@ -45,7 +44,7 @@ class SolverTestCase(unittest.TestCase):
         cls.alpha = 0.25
         cls.beta = 0.5
         cls.eta = 1e-6
-        cls.eps = 1e-6
+        cls.eps = 1e-9
         cls.it_max = 1000
 
         cls.x_0 = project.init_x(cls.n, zeroes=True)
@@ -61,15 +60,15 @@ class SolverTestCase(unittest.TestCase):
                                    options={'gtol': cls.eta})
 
         # Test with scipy, using our hessian, too.
+        # noinspection PyTypeChecker
         cls.result_hess = minimize(fun=project.objective, jac=project.gradient,
                                    hess=project.hessian, x0=cls.x_0,
-                                   args=(cls.a,), method='Newton-CG',
-                                   tol=cls.eps)
+                                   args=(cls.a,), method='Newton-CG')
 
     def test_gradient_descent(self):
         # Perform gradient descent.
         x, obj_list, t_list = project.gradient_descent(
-            x=self.x_0, a=self.a, alpha=self.alpha, beta=self.beta,
+            x_0=self.x_0, a=self.a, alpha=self.alpha, beta=self.beta,
             eta=self.eta, it_max=self.it_max)
 
         # Compare with gradient result.
@@ -83,16 +82,16 @@ class SolverTestCase(unittest.TestCase):
     def test_damped_newton(self):
         # Perform newton's method.
         x, obj_list, t_list = project.damped_newton(
-            x=self.x_0, a=self.a, alpha=self.alpha, beta=self.beta,
+            x_0=self.x_0, a=self.a, alpha=self.alpha, beta=self.beta,
             eps=self.eps, it_max=self.it_max)
 
         # Compare with simple result.
-        # Use a slightly higher tolerance since we're not specifying
-        # the gradient tolerance.
-        np.testing.assert_allclose(x, self.result_simple.x, rtol=5e-6, atol=0)
+        # Use a slightly higher tolerance since who knows what sort of
+        # tolerance gets used.
+        np.testing.assert_allclose(x, self.result_simple.x, rtol=3e-5, atol=0)
 
         # Compare with newton-cg result.
-        np.testing.assert_allclose(x, self.result_hess.x, rtol=1e-6, atol=0)
+        np.testing.assert_allclose(x, self.result_hess.x, rtol=3e-5, atol=0)
 
         pass
 

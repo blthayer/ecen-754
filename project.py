@@ -11,104 +11,211 @@ np.random.seed(SEED)
 
 
 def main():
-    # Initialize three problem instances.
-    instances = []
+    """Main function for the project, which initializes problem
+    instances which are re-used for each project component."""
+    # Initialize three problem instances with sizes orders of
+    # magnitude apart.
+    instances = [
+        {
+            'm': 8, 'n': 10, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-6,
+            'it_max': 1000, 'eps': 1e-12
+        },
+        # {
+        #     'm': 80, 'n': 100, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-6,
+        #     'it_max': 1000, 'eps': 1e-12
+        # },
+        # {
+        #     'm': 800, 'n': 1000, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-6,
+        #     'it_max': 10000, 'eps': 1e-12
+        # }
+    ]
 
-    part_a()
+    # Initialize x vectors and A matrices for each problem instance.
+    # Also get strings
+    for d in instances:
+        d['x_0'] = init_x(n=d['n'], zeroes=True)
+        d['a'] = init_a(m=d['m'], n=d['n'], x=d['x_0'], it_max=100)
+        # noinspection PyTypeChecker
+        d['param_str_eta'] = _get_param_size_str(
+            m=d['m'], n=d['n'], alpha=d['alpha'], beta=d['beta'], eta=d['eta'])
+
+        # noinspection PyTypeChecker
+        d['param_str_eps'] = _get_param_size_str(
+            m=d['m'], n=d['n'], alpha=d['alpha'], beta=d['beta'], eps=d['eps'])
+
+    part_a(instances)
+    part_b_and_c(instances)
 
     plt.show()
 
 
-def part_a():
-    """Do all the work for part a.
+def part_a(instances):
+    """Do all the work for part a: use gradient descent to solve, plot
+    objective value vs. iterations (log scale), step length vs.
+    iterations, and f(x) - p* vs. iterations (log scale).
+
+    Also, experiment with different alpha and beta values to see their
+    effect on total iterations required for all three problem instances.
     """
-    # Start with a reasonably sized problem.
-    m = 8
-    n = 10
-    alpha = 0.25
-    beta = 0.5
-    eta = 1e-6
-    it_max = 1000
+    for d in instances:
+        # Perform gradient descent with the first problem instance.
+        x, obj_array, t_list = gradient_descent(**d)
 
-    # Initialize our "x" vector to 0.
-    x_0 = init_x(n, zeroes=True)
-
-    # Initialize array to hold our "a" vectors in the columns.
-    a = init_a(m, n, x_0)
-
-    # Perform gradient descent.
-    x, obj_array, t_list = gradient_descent(x=x_0, a=a, eta=eta, alpha=alpha,
-                                            beta=beta, it_max=it_max)
-
-    # Create listing of parameters.
-    param_size = _get_param_size_str(m=m, n=n, alpha=alpha, beta=beta, eta=eta)
-
-    # Plot.
-    plot_results(obj_array=obj_array, t_list=t_list, method='Gradient Descent',
-                 param_str = param_size)
+        # Plot.
+        plot_results(obj_array=obj_array, t_list=t_list,
+                     method='Gradient Descent', param_str=d['param_str_eta'],
+                     method_file='grad_desc', m=d['m'], n=d['n'])
 
     print('Done solving and plotting initial problem.')
 
-    # # Determine the effect of alpha and beta for different problems.
-    # alpha_array = np.arange(0.05, 0.5, 0.05)
-    # beta_array = np.arange(0.1, 1, 0.1)
-    # m_list = [8, 80, 800]
-    # n_list = [10, 100, 1000]
-    #
-    # # Loop over problem sizes.
-    # for m, n in zip(m_list, n_list):
-    #     # Initialize problem.
-    #     x_0 = init_x(n, zeroes=True)
-    #     a = init_a(m, n, x_0)
-    #
-    #     # TODO: Initialize subplots here.
-    #
-    #     # Loop over backtracking parameters.
-    #     for alpha in alpha_array:
-    #         for beta in beta_array:
-    #             gradient_descent(x=x_0, a=a, eta=eta, alpha=alpha,
-    #                              beta=beta, it_max=it_max)
-    #
-    #     print(f'Done looping over alpha and beta for m={m}, n={n}')
+    # Determine the effect of alpha and beta for different problems.
+    alpha_array = np.arange(0.05, 0.5, 0.05)
+    beta_array = np.arange(0.1, 1, 0.1)
+
+    # Loop over problem sizes.
+    for d in instances:
+        # Initialize suplots. Do 3x3 since alpha & beta have len 9.
+        # We'll make the size fit with 0.5" margins, with an extra 0.5"
+        # for safety.
+        # noinspection PyTypeChecker
+        fig, ax_it = plt.subplots(nrows=3, ncols=3, sharex=True, sharey=True,
+                                  figsize=(9.5, 7))
+        fig.suptitle(
+            r'Number of Iterations vs. $\beta$ for Different Values '
+            rf"of $\alpha$. Problem Size: $m={d['m']}, n={d['n']}$",
+            fontsize='x-large'
+        )
+        ax_it = ax_it.flatten()
+
+        # Loop over backtracking parameters.
+        for idx, alpha in enumerate(alpha_array):
+            # Track iterations.
+            it_count = []
+            for beta in beta_array:
+                # Perform gradient descent.
+                result = gradient_descent(
+                    x_0=d['x_0'], a=d['a'], eta=d['eta'], alpha=alpha,
+                    beta=beta, it_max=d['it_max'])
+
+                # Track number of iterations.
+                it_count.append(len(result[1]))
+
+            # Plot.
+            ax = ax_it[idx]
+            ax.text(0.08, 0.8, rf'$\mathbf{{\alpha={alpha:.2f}}}$',
+                    transform=ax.transAxes, fontsize='large',
+                    fontweight='bold')
+            # ax.set_title(rf'$\alpha={alpha:.2f}$')
+            ax.plot(beta_array, it_count, linewidth=2)
+            ax.set_xlabel(r'$\beta$')
+            ax.set_xticks(beta_array)
+            # Label our y-axes on the left.
+            if idx % 3 == 0:
+                ax.set_ylabel('Number of Iterations')
+            ax.grid(True)
+
+        # Tighten the final layout.
+        fig.tight_layout(h_pad=0, w_pad=0, pad=0, rect=[0, 0, 1, 0.4])
+        fig.savefig(f"figs/alpha_beta_it_{d['m']}_{d['n']}.eps",
+                    orientation='landscape', format='eps')
+        print(f"Done looping over alpha and beta for m={d['m']}, n={d['n']}")
 
 
-def plot_results(obj_array, t_list, method, param_str):
+def part_b_and_c(instances):
+    """Do all work for parts b and c. Use damped Newton to solve,
+    plot f-p* and step length vs. iteration number.
+    """
+    for d in instances:
+        ################################################################
+        # Regular damped Newton - use full Hessian and update for
+        # every iteration.
+        x, obj_array, t_list = damped_newton(
+            **d, diag_h=False, hessian_update=1)
+
+        # Plot.
+        plot_results(
+            obj_array=obj_array, t_list=t_list, method='Regular Damped Newton',
+            param_str=d['param_str_eps'], method_file='newton_reg', m=d['m'],
+            n=d['n'])
+
+        ################################################################
+        # Damped Newton, but evaluate and update the Hessian every
+        # 3 iterations.
+        x, obj_array, t_list = damped_newton(
+            **d, diag_h=False, hessian_update=3)
+
+        # Plot.
+        plot_results(
+            obj_array=obj_array, t_list=t_list,
+            method='Newton Delayed Hessian Update',
+            param_str=d['param_str_eps'],
+            method_file='newton_delayed_h', m=d['m'], n=d['n'])
+
+        ################################################################
+        # Damped Newton, but only use the diagonal of the Hessian.
+        x, obj_array, t_list = damped_newton(
+            **d, diag_h=True, hessian_update=1)
+
+        # Plot.
+        plot_results(
+            obj_array=obj_array, t_list=t_list, method='Newton Diagonal',
+            param_str=d['param_str_eps'], method_file='newton_diag', m=d['m'],
+            n=d['n'])
+
+
+def plot_results(obj_array, t_list, method, param_str, method_file, m, n):
     # TODO: Save figures.
 
     # Plot objective value vs. iterations.
     fig = plt.figure()
     ax = fig.gca()
-    ax.semilogy(np.abs(obj_array))
+    ax.semilogy(np.abs(obj_array), linewidth=2)
     ax.set_xlabel('Iteration Number')
     ax.set_ylabel(r'$|f(\mathbf{x})|$ (Log Scale)')
     ax.set_title('Objective Value (Log Scale) vs. Iterations\nMethod: '
                  + method + param_str)
+    ax.grid(True)
+    fig.tight_layout()
+    fig.savefig(f"figs/obj_vs_it_{method_file}_{m}_{n}.eps", format='eps')
 
     # Plot step size vs. iteration number.
     fig2 = plt.figure()
     ax2 = fig2.gca()
-    ax2.plot(t_list)
+    ax2.plot(t_list, linewidth=2)
     ax2.set_xlabel('Iteration Number')
     ax2.set_ylabel(r'Step Size, $t$')
     ax2.set_title('Step Size vs. Iteration Number\nMethod: ' + method
                   + param_str)
+    ax2.grid(True)
+    fig2.tight_layout()
+    fig2.savefig(f"figs/step_vs_it_{method_file}_{m}_{n}.eps", format='eps')
 
     # Plot the optimality gap.
     fig3 = plt.figure()
     ax3 = fig3.gca()
-    ax3.semilogy(obj_array - obj_array[-1])
+    ax3.semilogy(obj_array - obj_array[-1], linewidth=2)
     ax3.set_xlabel('Iteration Number')
     ax3.set_ylabel(r'$f(\mathbf{x}) - p^*$ (Log Scale)')
     ax3.set_title('Optimality Gap vs. Iterations\nMethod: ' + method
                   + param_str)
+    ax3.grid(True)
+    fig3.tight_layout()
+    fig3.savefig(f"figs/op_gap_vs_it_{method_file}_{m}_{n}.eps", format='eps')
 
 
-def _get_param_size_str(m, n, alpha, beta, eta):
+def _get_param_size_str(m, n, alpha, beta, eta=None, eps=None):
     """Helper for creating string of problem size and parameters for
     plot titles.
     """
     size_str = fr'Size: $m={m}, n={n}$'
-    param_str = fr'Parameters: $\alpha={alpha}, \beta={beta}, \eta={eta}$'
+    param_str = fr'Parameters: $\alpha={alpha}, \beta={beta}'
+
+    if eta is not None:
+        param_str += fr', \eta={eta}$'
+
+    if eps is not None:
+        param_str += fr', \epsilon={eps}$'
+
     return '\n' + size_str + '\n' + param_str
 
 
@@ -173,7 +280,7 @@ def gradient(x, a):
 
 def hessian(x, a):
     """Evaluate the Hessian matrix of the objective function for given x
-        vector and A matrix.
+    vector and A matrix.
     """
     # Start by getting the diagonal.
     h, one_m_b_2 = diag_hessian(x, a)
@@ -215,6 +322,10 @@ def diag_hessian(x, a):
     # Pre-compute the square of the elements in a.
     a_sq = np.square(a)
 
+    # Add the x term to the diagonal.
+    diag_indices = np.diag_indices(h.shape[0])
+    h[diag_indices] += x_term
+
     # Loop to fill in the diagonal
     # TODO: This also feels like it should be vectorized...
     for k in range(len(x)):
@@ -225,9 +336,11 @@ def diag_hessian(x, a):
     return h, one_m_b_2
 
 
-def gradient_descent(x, a, eta, alpha, beta, it_max):
+def gradient_descent(x_0, a, eta, alpha, beta, it_max, *args, **kwargs):
     """Perform simple gradient descent with back-tracking line search.
     """
+    # Get a copy of x_0 so we don't modify it for other project parts.
+    x = x_0.copy()
 
     # Get an initial gradient.
     g = gradient(x, a)
@@ -313,11 +426,24 @@ def backtrack_line_search(x, a, g, dx, alpha, beta, it_max=1000):
     return t
 
 
-def damped_newton(x, a, eps, alpha, beta, it_max, hessian_update=1):
+def _get_hessian(x, a, diag=False):
+    """Simple helper for getting the Hessian."""
+    if diag:
+        h, _ = diag_hessian(x, a)
+        return h
+    else:
+        return hessian(x, a)
+
+
+def damped_newton(x_0, a, eps, alpha, beta, it_max, hessian_update=1,
+                  diag_h=False, *args, **kwargs):
     """Use damped Newton's method to solve."""
+    # Get a copy of x_0 so we don't modify it for other project parts.
+    x = x_0.copy()
+
     # Get initial gradient and Hessian.
     g = gradient(x, a)
-    h = hessian(x, a)
+    h = _get_hessian(x, a, diag_h)
 
     # Compute initial inverse of the Hessian.
     h_inv = np.linalg.inv(h)
@@ -341,8 +467,8 @@ def damped_newton(x, a, eps, alpha, beta, it_max, hessian_update=1):
         x = x + t * dx
 
         # Possibly update the Hessian.
-        if i % 1 == 0:
-            h = hessian(x, a)
+        if (i + 1) % hessian_update == 0:
+            h = _get_hessian(x, a, diag_h)
             h_inv = np.linalg.inv(h)
 
         # Update the gradient.
@@ -357,7 +483,6 @@ def damped_newton(x, a, eps, alpha, beta, it_max, hessian_update=1):
         raise UserWarning(f'Hit {i} iterations in backtrack_line_search.')
 
     return x, np.array(obj_list), t_list
-
 
 
 if __name__ == '__main__':
