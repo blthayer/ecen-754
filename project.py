@@ -66,7 +66,7 @@ def main():
 
     # Perform all the project work.
     part_a(instances)
-    # part_b_and_c(instances)
+    part_b_and_c(instances)
 
 
 def part_a(instances):
@@ -77,16 +77,16 @@ def part_a(instances):
     Also, experiment with different alpha and beta values to see their
     effect on total iterations required for all three problem instances.
     """
-    # for d in instances:
-    #     # Perform gradient descent with the first problem instance.
-    #     x, obj_array, t_list = gradient_descent(**d)
-    #
-    #     # Plot.
-    #     plot_results(obj_array=obj_array, t_list=t_list,
-    #                  method='Gradient Descent', param_str=d['param_str_eta'],
-    #                  method_file='grad_desc', m=d['m'], n=d['n'], p_s=d['p*'])
-    #
-    #     print(f"Initial problem solved (grad desc). m={d['m']}, n={d['n']}")
+    for d in instances:
+        # Perform gradient descent with the first problem instance.
+        x, obj_array, t_list = gradient_descent(**d)
+
+        # Plot.
+        plot_results(obj_array=obj_array, t_list=t_list,
+                     method='Gradient Descent', param_str=d['param_str_eta'],
+                     method_file='grad_desc', m=d['m'], n=d['n'], p_s=d['p*'])
+
+        print(f"Initial problem solved (grad desc). m={d['m']}, n={d['n']}")
 
     # Determine the effect of alpha and beta for different problems.
     alpha_array = np.arange(0.05, 0.5, 0.05)
