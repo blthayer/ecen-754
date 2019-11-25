@@ -513,7 +513,7 @@ def damped_newton(x_0, a, eps, alpha, beta, it_max, hessian_update=1,
         check = 0.5 * np.matmul(np.matmul(g, h_inv), g)
 
     if i >= it_max:
-        raise UserWarning(f'Hit {i} iterations in backtrack_line_search.')
+        raise UserWarning(f'Hit {i} iterations in damped_newton.')
 
     return x, np.array(obj_list), t_list
 
