@@ -4,6 +4,9 @@ Author: Brandon Thayer
 """
 import numpy as np
 import matplotlib.pyplot as plt
+# We'll use scipy ONLY to compute p* to a high accuracy to reduce code
+# run time.
+from scipy.optimize import minimize
 
 # Seed the random number generator for consistent results.
 SEED = 42
@@ -12,26 +15,32 @@ np.random.seed(SEED)
 
 def main():
     """Main function for the project, which initializes problem
-    instances which are re-used for each project component."""
-    # Initialize three problem instances with sizes orders of
-    # magnitude apart.
+    instances which are re-used for each project component, and then
+    calls the functions which solve the problem using our various
+    methods.
+    """
+    # Initialize four problem instances with different sizes.
     instances = [
         {
             'm': 8, 'n': 10, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-6,
-            'it_max': 1000, 'eps': 1e-12
+            'it_max': 100000, 'eps': 1e-12, 'gtol': 1e-9
         },
-        # {
-        #     'm': 80, 'n': 100, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-6,
-        #     'it_max': 1000, 'eps': 1e-12
-        # },
-        # {
-        #     'm': 800, 'n': 1000, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-6,
-        #     'it_max': 10000, 'eps': 1e-12
-        # }
+        {
+            'm': 40, 'n': 50, 'alpha': 0.25, 'beta': 0.5, 'eta': 5e-6,
+            'it_max': 1000000, 'eps': 1e-12, 'gtol': 1e-8
+        },
+        {
+            'm': 80, 'n': 100, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-5,
+            'it_max': 1000000, 'eps': 1e-12, 'gtol': 2e-8
+        },
+        {
+            'm': 160, 'n': 200, 'alpha': 0.25, 'beta': 0.5, 'eta': 1e-4,
+            'it_max': 10000000, 'eps': 1e-12, 'gtol': 1e-7
+        }
     ]
 
     # Initialize x vectors and A matrices for each problem instance.
-    # Also get strings
+    # Also get strings for plotting, and p* values for plotting.
     for d in instances:
         d['x_0'] = init_x(n=d['n'], zeroes=True)
         d['a'] = init_a(m=d['m'], n=d['n'], x=d['x_0'], it_max=100)
@@ -43,10 +52,21 @@ def main():
         d['param_str_eps'] = _get_param_size_str(
             m=d['m'], n=d['n'], alpha=d['alpha'], beta=d['beta'], eps=d['eps'])
 
-    part_a(instances)
-    part_b_and_c(instances)
+        # Solve the problem to get p* for plotting purposes.
+        # noinspection PyUnresolvedReferences,PyTypeChecker
+        result = minimize(fun=objective, x0=d['x_0'].copy(),
+                          args=(d['a'],), method='trust-exact',
+                          jac=gradient, hess=hessian,
+                          options={'gtol': d['gtol']})
 
-    plt.show()
+        # Put p* in the dictionary.
+        d['p*'] = result.fun
+
+        print(f"Solved via scipy for m={d['m']}, n={d['n']}")
+
+    # Perform all the project work.
+    part_a(instances)
+    # part_b_and_c(instances)
 
 
 def part_a(instances):
@@ -57,16 +77,16 @@ def part_a(instances):
     Also, experiment with different alpha and beta values to see their
     effect on total iterations required for all three problem instances.
     """
-    for d in instances:
-        # Perform gradient descent with the first problem instance.
-        x, obj_array, t_list = gradient_descent(**d)
-
-        # Plot.
-        plot_results(obj_array=obj_array, t_list=t_list,
-                     method='Gradient Descent', param_str=d['param_str_eta'],
-                     method_file='grad_desc', m=d['m'], n=d['n'])
-
-    print('Done solving and plotting initial problem.')
+    # for d in instances:
+    #     # Perform gradient descent with the first problem instance.
+    #     x, obj_array, t_list = gradient_descent(**d)
+    #
+    #     # Plot.
+    #     plot_results(obj_array=obj_array, t_list=t_list,
+    #                  method='Gradient Descent', param_str=d['param_str_eta'],
+    #                  method_file='grad_desc', m=d['m'], n=d['n'], p_s=d['p*'])
+    #
+    #     print(f"Initial problem solved (grad desc). m={d['m']}, n={d['n']}")
 
     # Determine the effect of alpha and beta for different problems.
     alpha_array = np.arange(0.05, 0.5, 0.05)
@@ -82,7 +102,8 @@ def part_a(instances):
                                   figsize=(9.5, 7))
         fig.suptitle(
             r'Number of Iterations vs. $\beta$ for Different Values '
-            rf"of $\alpha$. Problem Size: $m={d['m']}, n={d['n']}$",
+            rf"of $\alpha$. Problem Size: $m={d['m']}, n={d['n']}$. "
+            rf"$\eta={d['eta']}$",
             fontsize='x-large'
         )
         ax_it = ax_it.flatten()
@@ -96,6 +117,9 @@ def part_a(instances):
                 result = gradient_descent(
                     x_0=d['x_0'], a=d['a'], eta=d['eta'], alpha=alpha,
                     beta=beta, it_max=d['it_max'])
+
+                print(f"Solved (grad desc) for m={d['m']}, n={d['n']}, "
+                      f"alpha={alpha:.2f}, beta={beta:.2f}")
 
                 # Track number of iterations.
                 it_count.append(len(result[1]))
@@ -115,9 +139,10 @@ def part_a(instances):
             ax.grid(True)
 
         # Tighten the final layout.
-        fig.tight_layout(h_pad=0, w_pad=0, pad=0, rect=[0, 0, 1, 0.4])
+        fig.tight_layout(h_pad=0, w_pad=0, pad=0, rect=[0, 0, 1, 0.9])
         fig.savefig(f"figs/alpha_beta_it_{d['m']}_{d['n']}.eps",
                     orientation='landscape', format='eps')
+        plt.close(fig)
         print(f"Done looping over alpha and beta for m={d['m']}, n={d['n']}")
 
 
@@ -131,25 +156,27 @@ def part_b_and_c(instances):
         # every iteration.
         x, obj_array, t_list = damped_newton(
             **d, diag_h=False, hessian_update=1)
+        print(f"Done with regular damped Newton, m={d['m']}, n={d['n']}")
 
         # Plot.
         plot_results(
             obj_array=obj_array, t_list=t_list, method='Regular Damped Newton',
             param_str=d['param_str_eps'], method_file='newton_reg', m=d['m'],
-            n=d['n'])
+            n=d['n'], p_s=d['p*'])
 
         ################################################################
         # Damped Newton, but evaluate and update the Hessian every
         # 3 iterations.
         x, obj_array, t_list = damped_newton(
             **d, diag_h=False, hessian_update=3)
+        print(f"Done with occasional Hessian update, m={d['m']}, n={d['n']}")
 
         # Plot.
         plot_results(
             obj_array=obj_array, t_list=t_list,
             method='Newton Delayed Hessian Update',
             param_str=d['param_str_eps'],
-            method_file='newton_delayed_h', m=d['m'], n=d['n'])
+            method_file='newton_delayed_h', m=d['m'], n=d['n'], p_s=d['p*'])
 
         ################################################################
         # Damped Newton, but only use the diagonal of the Hessian.
@@ -160,11 +187,14 @@ def part_b_and_c(instances):
         plot_results(
             obj_array=obj_array, t_list=t_list, method='Newton Diagonal',
             param_str=d['param_str_eps'], method_file='newton_diag', m=d['m'],
-            n=d['n'])
+            n=d['n'], p_s=d['p*'])
+
+        print(f"Done with diagonal Hessian Newton, m={d['m']}, n={d['n']}")
 
 
-def plot_results(obj_array, t_list, method, param_str, method_file, m, n):
-    # TODO: Save figures.
+def plot_results(obj_array, t_list, method, param_str, method_file, m, n, p_s):
+    """Helper to plot objective value vs. iterations, step size vs.
+    iterations, and optimality gap vs. iterations."""
 
     # Plot objective value vs. iterations.
     fig = plt.figure()
@@ -177,6 +207,7 @@ def plot_results(obj_array, t_list, method, param_str, method_file, m, n):
     ax.grid(True)
     fig.tight_layout()
     fig.savefig(f"figs/obj_vs_it_{method_file}_{m}_{n}.eps", format='eps')
+    plt.close(fig)
 
     # Plot step size vs. iteration number.
     fig2 = plt.figure()
@@ -189,11 +220,12 @@ def plot_results(obj_array, t_list, method, param_str, method_file, m, n):
     ax2.grid(True)
     fig2.tight_layout()
     fig2.savefig(f"figs/step_vs_it_{method_file}_{m}_{n}.eps", format='eps')
+    plt.close(fig2)
 
     # Plot the optimality gap.
     fig3 = plt.figure()
     ax3 = fig3.gca()
-    ax3.semilogy(obj_array - obj_array[-1], linewidth=2)
+    ax3.semilogy(obj_array - p_s, linewidth=2)
     ax3.set_xlabel('Iteration Number')
     ax3.set_ylabel(r'$f(\mathbf{x}) - p^*$ (Log Scale)')
     ax3.set_title('Optimality Gap vs. Iterations\nMethod: ' + method
@@ -201,6 +233,7 @@ def plot_results(obj_array, t_list, method, param_str, method_file, m, n):
     ax3.grid(True)
     fig3.tight_layout()
     fig3.savefig(f"figs/op_gap_vs_it_{method_file}_{m}_{n}.eps", format='eps')
+    plt.close(fig3)
 
 
 def _get_param_size_str(m, n, alpha, beta, eta=None, eps=None):
@@ -390,8 +423,8 @@ def backtrack_line_search(x, a, g, dx, alpha, beta, it_max=1000):
     :param g: Gradient(x)
     :param dx: Search direction. For gradient descent this will just
         be the gradient(x).
-    :param alpha: 0 < alpha < 0.5
-    :param beta: 0 < beta < 1
+    :param alpha: backtracking parameter. 0 < alpha < 0.5
+    :param beta: backtracking parameter. 0 < beta < 1
     :param it_max: Maximum number of iterations for the while loop.
     """
     # Evaluate f(x + t * dx) where t starts as one.
